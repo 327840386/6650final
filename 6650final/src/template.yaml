@@ -1,0 +1,54 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: URL Shortener (create + redirect)
+
+Resources:
+
+  # DynamoDB 表
+  UrlTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: url_table
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: short_code
+          Type: S
+      KeySchema:
+        - AttributeName: short_code
+          KeyType: HASH
+
+  # 创建短 URL 的 Lambda
+  CreateFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: create_url_fn
+      Runtime: python3.12
+      Handler: app.handler
+      CodeUri: ../src/create_lambda
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UrlTable
+      Events:
+        CreateApi:
+          Type: Api
+          Properties:
+            Path: /create
+            Method: post
+
+  # 重定向短 URL 的 Lambda
+  RedirectFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: redirect_url_fn
+      Runtime: python3.12
+      Handler: app.handler
+      CodeUri: ../src/redirect_lambda
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref UrlTable
+      Events:
+        RedirectApi:
+          Type: Api
+          Properties:
+            Path: /{short_code}
+            Method: get
